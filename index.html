@@ -124,6 +124,7 @@ body.out .nav{display:none}
 .grade-row{display:flex;gap:14px;align-items:center}
 .grade{flex-shrink:0;display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:#fff;color:#000;font-weight:600;font-size:16px;font-variant-numeric:tabular-nums}
 .grade.low{background:var(--pill-dark);color:#fff;border:1px solid var(--trust-border)}
+.chip.kind{height:22px;padding:0 9px;font-size:11px;margin-left:6px;vertical-align:2px}
 .avg{margin:0 4px 12px;font-size:14px;color:#d0d0d0}
 .grid2{display:grid;grid-template-columns:minmax(0,360px) 1fr;gap:14px;align-items:start}
 form.f{display:grid;gap:12px;padding:20px}
@@ -372,7 +373,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,255,255,0.6);
     },
     addHw:async function(u,o){var s=ldLocal();s.homework.push({id:uid(),cls:o.cls,subject:u.subject,teacher:u.id,teacher_name:u.name,due:o.due,text:o.text});svLocal(s);},
     delHw:async function(id){var s=ldLocal();s.homework=s.homework.filter(function(x){return x.id!==id;});svLocal(s);},
-    addGrade:async function(u,o){var s=ldLocal();s.grades.push({id:uid(),student:o.student,subject:u.subject,teacher:u.id,teacher_name:u.name,date:o.date,grade:o.grade,comment:o.comment});svLocal(s);},
+    addGrade:async function(u,o){var s=ldLocal();s.grades.push({id:uid(),student:o.student,subject:u.subject,teacher:u.id,teacher_name:u.name,date:o.date,grade:o.grade,kind:o.kind,comment:o.comment});svLocal(s);},
     delGrade:async function(id){var s=ldLocal();s.grades=s.grades.filter(function(x){return x.id!==id;});svLocal(s);}
   };
 
@@ -438,7 +439,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,255,255,0.6);
     },
     addHw:async function(u,o){chk(await sb.from('homework').insert({cls:o.cls,subject:u.subject,teacher:u.id,teacher_name:u.name,due:o.due,text:o.text}));},
     delHw:async function(id){chk(await sb.from('homework').delete().eq('id',id));},
-    addGrade:async function(u,o){chk(await sb.from('grades').insert({student:o.student,subject:u.subject,teacher:u.id,teacher_name:u.name,date:o.date,grade:o.grade,comment:o.comment}));},
+    addGrade:async function(u,o){chk(await sb.from('grades').insert({student:o.student,subject:u.subject,teacher:u.id,teacher_name:u.name,date:o.date,grade:o.grade,kind:o.kind,comment:o.comment}));},
     delGrade:async function(id){chk(await sb.from('grades').delete().eq('id',id));}
   };
   var API=REMOTE?remote:local;
@@ -457,7 +458,12 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,255,255,0.6);
 
   function demoNote(){return REMOTE?'':'<p class="meta" style="margin:0 4px 12px">Демо-режим: данные видны только в этом браузере. Чтобы их видели все, подключите базу данных.</p>';}
   function head(title,chip){return '<div class="view-head"><h2>'+title+'</h2>'+(chip?'<span class="chip">'+chip+'</span>':'')+'</div>';}
-  function gradeCls(g){return g>=7?'':' low';}
+  function gradeCls(g){return g>=4?'':' low';}
+  var KINDS=[['regular','Обычная оценка',''],['mso','МСО','МСО'],['bso','БСО','БСО'],['dr','Диагностическая работа','ДР'],['dm','Директорский мониторинг','ДМ']];
+  function kindChip(k){
+    var f=KINDS.filter(function(x){return x[0]===k;})[0];
+    return f&&f[2]?' <span class="chip kind" title="'+f[1]+'">'+f[2]+'</span>':'';
+  }
   function classOpts(sel){return CLASSES.map(function(c){return '<option'+(c===sel?' selected':'')+'>'+c+'</option>';}).join('');}
 
   function schedHtml(){
@@ -515,24 +521,25 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,255,255,0.6);
         h+='<p class="avg">Средний балл: <strong>'+avg+'</strong></p>';
       }
       h+=gr.length?'<div class="list">'+gr.map(function(x){
-        return '<div class="card item"><div class="grade-row"><span class="grade'+gradeCls(x.grade)+'">'+x.grade+'</span><div><strong>'+esc(x.subject)+'</strong><div class="meta">'+fmt(x.date)+' · '+esc(x.teacher_name)+'</div></div></div>'+(x.comment?'<p>'+esc(x.comment)+'</p>':'')+'</div>';
+        return '<div class="card item"><div class="grade-row"><span class="grade'+gradeCls(x.grade)+'">'+x.grade+'</span><div><strong>'+esc(x.subject)+kindChip(x.kind)+'</strong><div class="meta">'+fmt(x.date)+' · '+esc(x.teacher_name)+'</div></div></div>'+(x.comment?'<p>'+esc(x.comment)+'</p>':'')+'</div>';
       }).join('')+'</div>':'<div class="card empty">Оценок и комментариев пока нет.</div>';
       return h;
     }
     var studs=data.students.filter(function(s){return s.cls===ui.cls;});
     var mg=data.grades.filter(function(x){return x.teacher===u.id;}).sort(byDate('date'));
-    var gopts='';for(var g=10;g>=1;g--)gopts+='<option>'+g+'</option>';
+    var gopts='';for(var g=5;g>=1;g--)gopts+='<option>'+g+'</option>';
     h=head('Оценки и комментарии',esc(u.subject))+demoNote();
     h+='<div class="grid2"><form class="card f" id="gr-form"><strong>Оценка и комментарий</strong>'+
       '<label>Класс<select id="gr-cls">'+classOpts(ui.cls)+'</select></label>'+
       '<label>Ученик<select id="gr-st">'+studs.map(function(s){return '<option value="'+esc(s.id)+'">'+esc(s.name)+'</option>';}).join('')+'</select></label>'+
+      '<label>Вид работы<select id="gr-kind">'+KINDS.map(function(k){return '<option value="'+k[0]+'">'+k[1]+(k[2]&&k[2]!==k[1]?' ('+k[2]+')':'')+'</option>';}).join('')+'</select></label>'+
       '<label>Оценка<select id="gr-val">'+gopts+'</select></label>'+
       '<label>Дата<input type="date" id="gr-date" required value="'+today()+'"></label>'+
       '<label>Комментарий<textarea id="gr-com" placeholder="Необязательно"></textarea></label>'+
       '<button class="btn" type="submit">Сохранить</button></form>'+
       '<div class="list">'+(mg.length?mg.map(function(x){
         var s=studentById(x.student);
-        return '<div class="card item"><div class="grade-row"><span class="grade'+gradeCls(x.grade)+'">'+x.grade+'</span><div><strong>'+(s?esc(s.name):'Ученик')+'</strong><div class="meta">'+fmt(x.date)+' · '+esc(x.subject)+'</div></div></div>'+(x.comment?'<p>'+esc(x.comment)+'</p>':'')+'<button class="del" type="button" data-del-gr="'+esc(x.id)+'">Удалить</button></div>';
+        return '<div class="card item"><div class="grade-row"><span class="grade'+gradeCls(x.grade)+'">'+x.grade+'</span><div><strong>'+(s?esc(s.name):'Ученик')+kindChip(x.kind)+'</strong><div class="meta">'+fmt(x.date)+' · '+esc(x.subject)+'</div></div></div>'+(x.comment?'<p>'+esc(x.comment)+'</p>':'')+'<button class="del" type="button" data-del-gr="'+esc(x.id)+'">Удалить</button></div>';
       }).join(''):'<div class="card empty">Вы ещё не ставили оценок.</div>')+'</div></div>';
     return h;
   }
@@ -601,7 +608,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,255,255,0.6);
       act(function(){return API.addHw(user,o);});
     }else if(e.target.id==='gr-form'){
       var st=$('#gr-st').value;if(!st)return;
-      var g={student:st,date:$('#gr-date').value,grade:parseInt($('#gr-val').value,10),comment:$('#gr-com').value.trim()};
+      var g={student:st,date:$('#gr-date').value,grade:parseInt($('#gr-val').value,10),kind:$('#gr-kind').value,comment:$('#gr-com').value.trim()};
       act(function(){return API.addGrade(user,g);});
     }
   });
