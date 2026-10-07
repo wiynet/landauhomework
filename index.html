@@ -290,7 +290,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,255,255,0.6);
         <button class="role" type="button" data-role="teacher"><strong>Я учитель</strong><span>Выставлять задания, оценки и комментарии</span></button>
       </div>
     </div>
-    <form id="step2" hidden autocomplete="off">
+    <form id="step2" hidden>
       <button type="button" class="back" id="back">← Назад</button>
       <h2 id="role-title"></h2>
       <label>Логин<input id="login" required autocapitalize="off" autocomplete="username"></label>
@@ -416,21 +416,27 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,255,255,0.6);
       var pr=await profile(s.data.session.user.id);
       if(!pr)return null;
       var ok=true;
-      try{ok=await deviceOk(pr);}catch(e){return null;}
-      if(!ok){await sb.auth.signOut();return null;}
+      try{ok=await deviceOk(pr);}
+      catch(e){
+        /* Проверка не прошла: если сеанс на сервере уже закрыт — выходим, если это сбой сети — остаёмся в аккаунте */
+        var rf=null;try{rf=await sb.auth.refreshSession();}catch(e2){return pr;}
+        if(rf&&rf.error&&rf.error.status&&rf.error.status<500){await sb.auth.signOut({scope:'local'});return null;}
+        return pr;
+      }
+      if(!ok){await sb.auth.signOut({scope:'local'});return null;}
       return pr;
     },
     login:async function(role,l,p){
       var r=await sb.auth.signInWithPassword({email:l+'@'+EMAIL_DOMAIN,password:p});
       if(r.error)throw new Error(r.error.code==='invalid_credentials'||r.error.status===400?'Неверный логин или пароль.':'Не удалось связаться с сервером. Проверьте интернет и попробуйте ещё раз.');
       var pr=await profile(r.data.user.id);
-      if(!pr){await sb.auth.signOut();throw new Error('Аккаунт есть, но у него не настроен профиль. Сообщите администратору.');}
+      if(!pr){await sb.auth.signOut({scope:'local'});throw new Error('Аккаунт есть, но у него не настроен профиль. Сообщите администратору.');}
       var ok;
-      try{ok=await deviceOk(pr);}catch(e){await sb.auth.signOut();throw e;}
-      if(!ok){await sb.auth.signOut();throw new Error('Этот аккаунт уже используется на 4 устройствах. Новое устройство добавить нельзя — обратитесь к администратору.');}
+      try{ok=await deviceOk(pr);}catch(e){await sb.auth.signOut({scope:'local'});throw e;}
+      if(!ok){await sb.auth.signOut({scope:'local'});throw new Error('Этот аккаунт уже используется на 4 устройствах. Новое устройство добавить нельзя — обратитесь к администратору.');}
       return pr;
     },
-    logout:async function(){await sb.auth.signOut();},
+    logout:async function(){await sb.auth.signOut({scope:'local'});},
     fetchAll:async function(u){
       var hw=chk(await sb.from('homework').select('*').order('due',{ascending:false}));
       var gr=chk(await sb.from('grades').select('*').order('date',{ascending:false}));
