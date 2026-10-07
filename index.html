@@ -139,6 +139,14 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,255,255,0.6);
 .del{justify-self:start;font-size:12.5px;color:var(--muted);padding:2px 0;text-decoration:underline;text-underline-offset:3px}
 .del:hover{color:#fff}
 .empty{padding:22px;color:var(--muted);font-size:14.5px;text-align:center}
+.past{margin-top:18px}
+.past summary{display:inline-flex;align-items:center;height:36px;padding:0 18px;border-radius:999px;background:var(--pill-dark);color:var(--sign-in-text);font-weight:500;font-size:13.5px;cursor:pointer;list-style:none;transition:background 0.25s,color 0.25s}
+.past summary::-webkit-details-marker{display:none}
+.past summary::after{content:"+";margin-left:10px;font-size:16px;line-height:1}
+.past[open] summary::after{content:"–"}
+.past summary:hover{background:#323234;color:#fff}
+.past .list{margin-top:12px}
+.past .item{opacity:0.72}
 
 /* MODAL */
 .modal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,0.62);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;visibility:hidden;transition:opacity 0.28s ease,visibility 0s linear 0.28s}
@@ -467,26 +475,34 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,255,255,0.6);
     h+='<p class="note">Администрация школы оставляет за собой право при необходимости вносить коррективы в расписание класса.</p>';
     return h;
   }
+  function hwSplit(items,card,emptyText){
+    var t=today();
+    var cur=items.filter(function(x){return x.due>=t;}).sort(function(a,b){return a.due<b.due?-1:a.due>b.due?1:0;});
+    var past=items.filter(function(x){return x.due<t;}).sort(byDate('due'));
+    var h=cur.length?'<div class="list">'+cur.map(function(x){return card(x,false);}).join('')+'</div>':'<div class="card empty">'+emptyText+'</div>';
+    if(past.length)h+='<details class="past"'+(ui.pastOpen?' open':'')+'><summary>Прошедшие ('+past.length+')</summary><div class="list">'+past.map(function(x){return card(x,true);}).join('')+'</div></details>';
+    return h;
+  }
   function hwHtml(){
     var u=user,h;
     if(u.role==='student'){
-      var hw=data.homework.filter(function(x){return x.cls===u.cls;}).sort(byDate('due'));
+      var hw=data.homework.filter(function(x){return x.cls===u.cls;});
       h=head('Домашние задания','Класс '+esc(u.cls))+demoNote();
-      h+=hw.length?'<div class="list">'+hw.map(function(x){
-        return '<div class="card item"><div class="item-top"><strong>'+esc(x.subject)+'</strong><span class="chip">Сдать до '+fmt(x.due)+'</span></div><p>'+esc(x.text)+'</p><span class="meta">'+esc(x.teacher_name)+'</span></div>';
-      }).join('')+'</div>':'<div class="card empty">Пока нет домашних заданий.</div>';
+      h+=hwSplit(hw,function(x,old){
+        return '<div class="card item"><div class="item-top"><strong>'+esc(x.subject)+'</strong><span class="chip">'+(old?'Срок был ':'Сдать до ')+fmt(x.due)+'</span></div><p>'+esc(x.text)+'</p><span class="meta">'+esc(x.teacher_name)+'</span></div>';
+      },'Актуальных домашних заданий нет.');
       return h;
     }
-    var mine=data.homework.filter(function(x){return x.teacher===u.id;}).sort(byDate('due'));
+    var mine=data.homework.filter(function(x){return x.teacher===u.id;});
     h=head('Домашние задания',esc(u.subject))+demoNote();
     h+='<div class="grid2"><form class="card f" id="hw-form"><strong>Новое задание</strong>'+
       '<label>Класс<select id="hw-cls">'+classOpts(ui.cls)+'</select></label>'+
       '<label>Срок сдачи<input type="date" id="hw-due" required value="'+today()+'"></label>'+
       '<label>Задание<textarea id="hw-text" required placeholder="Что нужно сделать"></textarea></label>'+
       '<button class="btn" type="submit">Опубликовать</button></form>'+
-      '<div class="list">'+(mine.length?mine.map(function(x){
-        return '<div class="card item"><div class="item-top"><strong>'+esc(x.cls)+' · '+esc(x.subject)+'</strong><span class="chip">До '+fmt(x.due)+'</span></div><p>'+esc(x.text)+'</p><button class="del" type="button" data-del-hw="'+esc(x.id)+'">Удалить</button></div>';
-      }).join(''):'<div class="card empty">Вы ещё не выдавали заданий.</div>')+'</div></div>';
+      '<div>'+hwSplit(mine,function(x,old){
+        return '<div class="card item"><div class="item-top"><strong>'+esc(x.cls)+' · '+esc(x.subject)+'</strong><span class="chip">'+(old?'Срок был ':'До ')+fmt(x.due)+'</span></div><p>'+esc(x.text)+'</p><button class="del" type="button" data-del-hw="'+esc(x.id)+'">Удалить</button></div>';
+      },'Актуальных заданий нет.')+'</div></div>';
     return h;
   }
   function grHtml(){
@@ -571,6 +587,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,255,255,0.6);
     d=e.target.closest('[data-del-gr]');
     if(d)act(function(){return API.delGrade(d.dataset.delGr);});
   });
+  main.addEventListener('toggle',function(e){if(e.target.classList&&e.target.classList.contains('past'))ui.pastOpen=e.target.open;},true);
   main.addEventListener('change',function(e){
     if(e.target.id==='gr-cls'){ui.cls=e.target.value;render();}
     else if(e.target.id==='hw-cls'){ui.cls=e.target.value;}
