@@ -125,7 +125,6 @@ body.out .nav{display:none}
 .grade{flex-shrink:0;display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:#fff;color:#000;font-weight:600;font-size:16px;font-variant-numeric:tabular-nums}
 .grade.low{background:var(--pill-dark);color:#fff;border:1px solid var(--trust-border)}
 .grade.pts{display:flex;align-items:center;justify-content:center;width:auto;min-width:42px;padding:0 12px;border-radius:999px;background:var(--pill-dark);color:#fff;border:1px solid var(--trust-border)}
-.grade.pts::after{content:" б.";font-size:11px;font-weight:500;color:var(--muted);margin-left:3px}
 .chip.kind{height:22px;padding:0 9px;font-size:11px;margin-left:6px;vertical-align:2px}
 .avg{margin:0 4px 12px;font-size:14px;color:#d0d0d0}
 .grid2{display:grid;grid-template-columns:minmax(0,360px) 1fr;gap:14px;align-items:start}
@@ -463,7 +462,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,255,255,0.6);
   function gradeCls(g){return g>=4?'':' low';}
   function isPts(x){return x.kind&&x.kind!=='regular';}
   function gradeBadge(x){
-    return isPts(x)?'<span class="grade pts" title="Баллы">'+x.grade+'</span>':'<span class="grade'+gradeCls(x.grade)+'">'+x.grade+'</span>';
+    return isPts(x)?'<span class="grade pts" title="Результат в процентах">'+x.grade+'%</span>':'<span class="grade'+gradeCls(x.grade)+'">'+x.grade+'</span>';
   }
   var KINDS=[['regular','Обычная оценка',''],['mso','МСО','МСО'],['bso','БСО','БСО'],['dr','Диагностическая работа','ДР'],['dm','Директорский мониторинг','ДМ']];
   function kindChip(k){
@@ -541,7 +540,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,255,255,0.6);
       '<label>Ученик<select id="gr-st">'+studs.map(function(s){return '<option value="'+esc(s.id)+'">'+esc(s.name)+'</option>';}).join('')+'</select></label>'+
       '<label>Вид работы<select id="gr-kind">'+KINDS.map(function(k){return '<option value="'+k[0]+'"'+(k[0]===ui.kind?' selected':'')+'>'+k[1]+(k[2]&&k[2]!==k[1]?' ('+k[2]+')':'')+'</option>';}).join('')+'</select></label>'+
       '<label id="gr-val-wrap"'+(ui.kind==='regular'?'':' hidden')+'>Оценка<select id="gr-val">'+gopts+'</select></label>'+
-      '<label id="gr-pts-wrap"'+(ui.kind==='regular'?' hidden':'')+'>Баллы (0–100)<input type="number" id="gr-pts" min="0" max="100" step="1" inputmode="numeric" placeholder="Например, 85"></label>'+
+      '<label id="gr-pts-wrap"'+(ui.kind==='regular'?' hidden':'')+'>Результат, % (1–100)<input type="number" id="gr-pts" min="1" max="100" step="1" inputmode="numeric" placeholder="Например, 85"></label>'+
       '<label>Дата<input type="date" id="gr-date" required value="'+today()+'"></label>'+
       '<label>Комментарий<textarea id="gr-com" placeholder="Необязательно"></textarea></label>'+
       '<button class="btn" type="submit">Сохранить</button></form>'+
@@ -625,7 +624,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,255,255,0.6);
       if(kind==='regular')val=parseInt($('#gr-val').value,10);
       else{
         val=parseInt($('#gr-pts').value,10);
-        if(isNaN(val)||val<0||val>100){alert('Введите баллы от 0 до 100.');$('#gr-pts').focus();return;}
+        if(isNaN(val)||val<1||val>100){alert('Введите результат от 1 до 100%.');$('#gr-pts').focus();return;}
       }
       var g={student:st,date:$('#gr-date').value,grade:val,kind:kind,comment:$('#gr-com').value.trim()};
       act(function(){return API.addGrade(user,g);});
